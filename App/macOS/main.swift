@@ -7,9 +7,11 @@ import ElephThemes
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var settingsWindowController: SettingsWindowController?
+    private let tagsAndFoldersStorage = TagsAndFoldersStorage()
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Setup any required app-level configurations here
+        // Initialize the tags and folders storage on app start
+        tagsAndFoldersStorage.initialize()
     }
     
     func setupSettingsController(with themeManager: ThemeManager) {
