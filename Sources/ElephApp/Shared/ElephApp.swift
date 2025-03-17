@@ -7,7 +7,6 @@ public struct MainView: View {
     @EnvironmentObject private var themeManager: ThemeManager
     @State private var selectedDocument: Document?
     @State private var searchText = ""
-    @State private var isShowingThemeSettings = false
     
     public init() {
         // Public initializer for external use
@@ -23,22 +22,6 @@ public struct MainView: View {
                 )
                 
                 Spacer()
-                
-                // Theme switcher button in the navigation pane
-                Button(action: {
-                    isShowingThemeSettings.toggle()
-                }) {
-                    Label("Theme Settings", systemImage: "paintpalette")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-                .popover(isPresented: $isShowingThemeSettings) {
-                    ThemeSettingsView(themeManager: themeManager)
-                        .frame(width: 300, height: 200)
-                        .padding()
-                }
             }
             .frame(minWidth: 200)
         } content: {
