@@ -9,7 +9,7 @@ COPYRIGHT="Copyright © 2025. All rights reserved."
 
 # Build the app (Debug mode for faster iteration)
 echo "Building the Eleph app..."
-swift build --target ElephMacOS -c debug
+swift build --product ElephMacOS -c debug
 
 # Clean up any existing app
 rm -rf "$APP_NAME"
@@ -20,7 +20,15 @@ mkdir -p "$APP_NAME/Contents/Resources"
 
 # Copy the executable
 echo "Copying executable..."
-cp .build/debug/ElephMacOS "$APP_NAME/Contents/MacOS/Eleph"
+EXECUTABLE_PATH=$(find .build -name "ElephMacOS" -type f -not -path "*.dSYM*" | head -n 1)
+
+if [ -z "$EXECUTABLE_PATH" ]; then
+    echo "Error: ElephMacOS executable not found in the build directory"
+    exit 1
+fi
+
+echo "Found executable at $EXECUTABLE_PATH"
+cp "$EXECUTABLE_PATH" "$APP_NAME/Contents/MacOS/Eleph"
 chmod +x "$APP_NAME/Contents/MacOS/Eleph"
 
 # Create Info.plist
