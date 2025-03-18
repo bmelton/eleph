@@ -1,5 +1,6 @@
 import SwiftUI
 import ElephCore
+// import ElephCore.Storage -- You keep adding ElephCore.Storage but it isn't needed, nor does it work.
 
 public struct NavigationPane: View {
     @Binding public var searchText: String
@@ -17,6 +18,17 @@ public struct NavigationPane: View {
     @State private var showingAddTagAlert = false
     @State private var newFolderName = ""
     @State private var newTagName = ""
+    
+    // Edit mode state
+    @State private var isEditMode = false
+    @State private var showingDeleteConfirmation = false
+    @State private var itemToDelete: (type: ItemType, name: String)? = nil
+    
+    // Define item types for deletion
+    enum ItemType {
+        case folder
+        case tag
+    }
     
     // MARK: - Initialization
     
@@ -69,42 +81,63 @@ public struct NavigationPane: View {
         loadData() // Reload data
     }
     
+    // MARK: - Edit Mode
+    
+    private func toggleEditMode() {
+        isEditMode.toggle()
+    }
+    
+    private func confirmDeletion(type: ItemType, name: String) {
+        itemToDelete = (type: type, name: name)
+        showingDeleteConfirmation = true
+    }
+    
+    private func deleteItem() {
+        guard let item = itemToDelete else { return }
+        
+        switch item.type {
+        case .folder:
+            removeFolder(item.name)
+        case .tag:
+            removeTag(item.name)
+        }
+        
+        itemToDelete = nil
+    }
+    
     // MARK: - View Body
     
     public var body: some View {
         List {
             /*
-            DisclosureGroup(
-                isExpanded: .constant(!quickAccessCollapsed), //Use constant and toggle state directly.
-                content: {
-                    ForEach(folders, id: \.self) { folder in
+            Section {
+                ForEach(folders, id: \.self) { folder in
+                    if isEditMode {
+                        HStack {
+                            Text(folder)
+                            Spacer()
+                            Button {
+                                confirmDeletion(type: .folder, name: folder)
+                            } label: {
+                                Image(systemName: "minus.circle.fill")
+                                    .foregroundColor(.red)
+                            }
+                            .buttonStyle(BorderlessButtonStyle()) // Prevents the whole row from being a button
+                        }
+                        .tag(folder)
+                        .padding(.vertical, 2)
+                    } else {
                         Label(folder, systemImage: "folder")
                             .tag(folder)
                             .padding(.vertical, 2)
-                    }
-                    
-                    Label("Trash", systemImage: "trash")
-                        .tag("Trash")
-                        .padding(.vertical, 2)
-                },
-                label: {
-                    Text("Quick Access")
-                        .font(.headline)
-                }
-            )
-             */
-            Section {
-                ForEach(folders, id: \.self) { folder in
-                    Label(folder, systemImage: "folder")
-                        .tag(folder)
-                        .padding(.vertical, 2)
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                removeFolder(folder)
-                            } label: {
-                                Label("Remove Folder", systemImage: "trash")
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    removeFolder(folder)
+                                } label: {
+                                    Label("Remove Folder", systemImage: "trash")
+                                }
                             }
-                        }
+                    }
                 }
                 
                 Button {
@@ -117,23 +150,47 @@ public struct NavigationPane: View {
                 Label("Trash", systemImage: "trash")
                     .tag("Trash")
                     .padding(.vertical, 2)
+                    
+                Button {
+                    toggleEditMode()
+                } label: {
+                    Label(isEditMode ? "Done" : "Edit", systemImage: isEditMode ? "checkmark" : "pencil")
+                }
+                .padding(.vertical, 2)
             } header: {
                 Text("Quick Access").font(.headline)
             }
             .padding(.vertical, 2)
-            
+            */
+
             Section {
                 ForEach(tags, id: \.self) { tag in
-                    Label(tag, systemImage: "tag")
+                    if isEditMode {
+                        HStack {
+                            Text(tag)
+                            Spacer()
+                            Button {
+                                confirmDeletion(type: .tag, name: tag)
+                            } label: {
+                                Image(systemName: "minus.circle.fill")
+                                    .foregroundColor(.red)
+                            }
+                            .buttonStyle(BorderlessButtonStyle()) // Prevents the whole row from being a button
+                        }
                         .tag(tag)
                         .padding(.vertical, 2)
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                removeTag(tag)
-                            } label: {
-                                Label("Remove Tag", systemImage: "trash")
+                    } else {
+                        Label(tag, systemImage: "tag")
+                            .tag(tag)
+                            .padding(.vertical, 2)
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    removeTag(tag)
+                                } label: {
+                                    Label("Remove Tag", systemImage: "trash")
+                                }
                             }
-                        }
+                    }
                 }
                 
                 Button {
@@ -142,6 +199,18 @@ public struct NavigationPane: View {
                     Label("Add Tag", systemImage: "plus")
                 }
                 .padding(.top, 4)
+                Divider()
+                HStack {
+                    Label("Trash", systemImage: "trash")
+                        .tag("Trash")
+                        .padding(.vertical, 2)
+                    Spacer()
+                    Button {
+                        toggleEditMode()
+                    } label: {
+                        Label(isEditMode ? "Done" : "Edit", systemImage: isEditMode ? "checkmark" : "pencil")
+                    }
+                }
             } header: {
                 Text("Tags").font(.headline)
             }
@@ -173,6 +242,18 @@ public struct NavigationPane: View {
             }
         } message: {
             Text("Enter a name for the new tag")
+        }
+        .alert("Confirm Deletion", isPresented: $showingDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                deleteItem()
+            }
+        } message: {
+            if let item = itemToDelete {
+                Text("Are you sure you want to delete '\(item.name)'?")
+            } else {
+                Text("Are you sure you want to delete this item?")
+            }
         }
     }
 }
