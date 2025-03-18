@@ -14,6 +14,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         tagsAndFoldersStorage.initialize()
     }
     
+    func applicationWillTerminate(_ notification: Notification) {
+        // Force save documents before app terminates
+        NotificationCenter.default.post(name: NSNotification.Name("SaveAllDocuments"), object: nil)
+    }
+    
     func setupSettingsController(with themeManager: ThemeManager) {
         settingsWindowController = SettingsWindowController(themeManager: themeManager)
     }
@@ -44,7 +49,9 @@ struct ElephMacApp: App {
             // Add standard macOS menu commands
             CommandGroup(replacing: .newItem) {
                 Button("New Document") {
-                    // Add your new document action here
+                    // Create a new document and notify to refresh
+                    let _ = Document.createNewDocument()
+                    NotificationCenter.default.post(name: NSNotification.Name("RefreshDocumentsList"), object: nil)
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }

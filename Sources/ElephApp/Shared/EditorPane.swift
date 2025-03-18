@@ -22,6 +22,12 @@ public struct EditorPane: View {
                 
                 Spacer()
                 
+                // Save button
+                Button(action: { document.save() }) {
+                    Label("Save", systemImage: "arrow.down.doc")
+                }
+                .help("Save Document")
+                
                 // Add some additional tools
                 HStack(spacing: 12) {
                     // Heading button
@@ -68,11 +74,19 @@ public struct EditorPane: View {
                         .padding()
                         .background(themeManager.currentTheme.editorBackground)
                         .frame(minWidth: 400, maxWidth: .infinity, minHeight: 600, maxHeight: .infinity)
+                        .onChange(of: document.content) { _ in
+                            // Post notification that document has been updated
+                            NotificationCenter.default.post(name: NSNotification.Name("DocumentUpdated"), object: document)
+                        }
                     #else
                     TextEditor(text: $document.content)
                         .font(.system(size: 14, weight: .regular, design: .monospaced))
                         .padding()
                         .background(themeManager.currentTheme.editorBackground)
+                        .onChange(of: document.content) { _ in
+                            // Post notification that document has been updated
+                            NotificationCenter.default.post(name: NSNotification.Name("DocumentUpdated"), object: document)
+                        }
                     #endif
                 } else {
                     // Preview
@@ -94,12 +108,20 @@ public struct EditorPane: View {
             }
             .animation(.easeInOut(duration: 0.3), value: editMode)
         }
+        .onDisappear {
+            // Save document when view disappears
+            document.save()
+        }
     }
     
     // Helper method to insert Markdown into the document
     private func insertMarkdown(_ markdown: String) {
         if editMode {
             document.content.append("\n\(markdown)")
+            // Trigger save on insert
+            document.save()
+            // Notify document was updated
+            NotificationCenter.default.post(name: NSNotification.Name("DocumentUpdated"), object: document)
         }
     }
 }

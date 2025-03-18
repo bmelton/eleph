@@ -4,18 +4,13 @@ import ElephCore
 public struct PreviewPane: View {
     public let searchText: String
     @Binding public var selectedDocument: Document?
+    @State private var documents: [Document] = []
+    @State private var refreshTimer: Timer? = nil
     
     public init(searchText: String, selectedDocument: Binding<Document?>) {
         self.searchText = searchText
         self._selectedDocument = selectedDocument
     }
-    
-    // Sample documents (will be replaced with actual data model)
-    @State private var documents = [
-        Document(id: "1", title: "Getting Started with Markdown", content: "# Getting Started with Markdown\n\nMarkdown is a lightweight markup language that you can use to add formatting elements to plaintext text documents.\n\n## Why Use Markdown?\n\nMarkdown is portable, platform independent, and future proof.", lastModified: Date()),
-        Document(id: "2", title: "Project Ideas", content: "# Project Ideas\n\n## Mobile Apps\n- Note taking app with markdown support\n- Habit tracker with insights\n\n## Web Applications\n- Portfolio website\n- Recipe manager", lastModified: Date().addingTimeInterval(-86400)),
-        Document(id: "3", title: "Meeting Notes", content: "# Team Meeting - March 15\n\n## Agenda\n1. Project status updates\n2. Upcoming deadlines\n3. Open discussion\n\n## Action Items\n- [ ] Send follow-up email\n- [ ] Schedule next meeting", lastModified: Date().addingTimeInterval(-172800))
-    ]
     
     var filteredDocuments: [Document] {
         if searchText.isEmpty {
@@ -29,17 +24,73 @@ public struct PreviewPane: View {
     }
     
     public var body: some View {
-        List(filteredDocuments) { document in
-            DocumentPreviewRow(document: document)
-                .onTapGesture {
-                    selectedDocument = document
+        VStack {
+            HStack {
+                Text("Documents")
+                    .font(.headline)
+                    .padding(.leading)
+                
+                Spacer()
+                
+                Button(action: createNewDocument) {
+                    Label("New", systemImage: "plus")
                 }
+                .buttonStyle(.bordered)
+                .padding(.trailing)
+            }
+            .padding(.top, 8)
+            
+            List(filteredDocuments) { document in
+                DocumentPreviewRow(document: document)
+                    .onTapGesture {
+                        selectedDocument = document
+                    }
+                    .id("\(document.id)-\(document.lastModified.timeIntervalSince1970)")
+            }
+            .listStyle(.plain)
+            .id(UUID()) // Force refresh when documents change
         }
-        .listStyle(.plain)
+        .onAppear {
+            loadDocuments()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("RefreshDocumentsList"))) { _ in
+            loadDocuments()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("DocumentUpdated"))) { notification in
+            // When a document is updated, refresh the document list
+            loadDocuments()
+        }
+    }
+    
+    private func loadDocuments() {
+        // Store currently selected document ID to maintain selection
+        let selectedID = selectedDocument?.id
+        
+        // Load fresh documents
+        let freshDocuments = Document.loadDocuments()
+        
+        // Sort by last modified date (newest first)
+        self.documents = freshDocuments.sorted { $0.lastModified > $1.lastModified }
+        
+        // If we had a selected document, update the reference to the fresh one
+        if let selectedID = selectedID, 
+           let freshDocument = documents.first(where: { $0.id == selectedID }) {
+            // Only update if not the same instance
+            if selectedDocument?.id == freshDocument.id && selectedDocument !== freshDocument {
+                selectedDocument = freshDocument
+            }
+        }
+    }
+    
+    private func createNewDocument() {
+        let newDocument = Document.createNewDocument()
+        self.documents.insert(newDocument, at: 0)
+        self.selectedDocument = newDocument
     }
 }
 
 public struct DocumentPreviewRow: View {
+    // Use a regular reference rather than @ObservedObject to avoid potential retain cycles
     public let document: Document
     
     public init(document: Document) {
@@ -48,7 +99,7 @@ public struct DocumentPreviewRow: View {
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(document.title)
+            Text(document.extractedTitle)
                 .font(.headline)
             
             Text(document.previewText)
@@ -61,5 +112,7 @@ public struct DocumentPreviewRow: View {
                 .foregroundColor(Color.gray.opacity(0.6))
         }
         .padding(.vertical, 8)
+        // Use ID to force refresh when document changes
+        .id("\(document.id)-\(document.lastModified.timeIntervalSince1970)")
     }
 }
