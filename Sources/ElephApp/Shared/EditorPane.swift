@@ -1,178 +1,276 @@
 import SwiftUI
-import ElephCore
-import ElephMarkdown
-import ElephThemes
+import AppKit  // Added for NSWorkspace
 
-public struct EditorPane: View {
-    @ObservedObject public var document: Document
+struct LinkDemoView: View {
+    @State private var linkSelection: URL?
     
-    public init(document: Document) {
-        self.document = document
-    }
-    @State private var editMode = true
-    @EnvironmentObject private var themeManager: ThemeManager
-    
-    public var body: some View {
-        VStack(spacing: 0) {
-            // Toolbar
-            HStack {
-                Button(action: { editMode.toggle() }) {
-                    Label(editMode ? "Preview" : "Edit", systemImage: editMode ? "eye" : "pencil")
-                }
-                
-                Spacer()
-                
-                // Save button
-                Button(action: { document.save() }) {
-                    Label("Save", systemImage: "arrow.down.doc")
-                }
-                .help("Save Document")
-                
-                // Add some additional tools
-                HStack(spacing: 12) {
-                    // Heading button
-                    Button(action: { insertMarkdown("# ") }) {
-                        Image(systemName: "textformat.size")
-                    }
-                    .help("Insert Heading")
-                    
-                    // Bold button
-                    Button(action: { insertMarkdown("**bold text**") }) {
-                        Image(systemName: "bold")
-                    }
-                    .help("Bold")
-                    
-                    // Italic button
-                    Button(action: { insertMarkdown("*italic text*") }) {
-                        Image(systemName: "italic")
-                    }
-                    .help("Italic")
-                    
-                    // List button
-                    Button(action: { insertMarkdown("- ") }) {
-                        Image(systemName: "list.bullet")
-                    }
-                    .help("Bullet List")
-                    
-                    // Share button
-                    Button(action: {}) {
-                        Label("Share", systemImage: "square.and.arrow.up")
-                    }
-                    .help("Share")
-                }
-            }
-            .padding()
-            .background(themeManager.currentTheme.toolbarBackground)
+    var body: some View {
+        VStack {
+            Text("Link Demo")
+                .font(.headline)
             
-            // Editor/Preview content
-            ZStack {
-                // Editor
-                if editMode {
-                    #if os(macOS)
-                    TextEditor(text: $document.content)
-                        .font(.system(size: 14, weight: .regular, design: .monospaced))
-                        .padding()
-                        .background(themeManager.currentTheme.editorBackground)
-                        .frame(minWidth: 400, maxWidth: .infinity, minHeight: 600, maxHeight: .infinity)
-                        .onChange(of: document.content) { _ in
-                            // Post notification that document has been updated
-                            NotificationCenter.default.post(name: NSNotification.Name("DocumentUpdated"), object: document)
-                        }
-                    #else
-                    TextEditor(text: $document.content)
-                        .font(.system(size: 14, weight: .regular, design: .monospaced))
-                        .padding()
-                        .background(themeManager.currentTheme.editorBackground)
-                        .onChange(of: document.content) { _ in
-                            // Post notification that document has been updated
-                            NotificationCenter.default.post(name: NSNotification.Name("DocumentUpdated"), object: document)
-                        }
-                    #endif
-                } else {
-                    // Preview
-                    #if os(macOS)
-                    MarkdownView(
-                        markdown: document.content,
-                        theme: themeManager.currentTheme
-                    )
-                    .frame(minWidth: 400, maxWidth: .infinity, minHeight: 600, maxHeight: .infinity)
-                    .background(themeManager.currentTheme.editorBackground)
-                    #else
-                    MarkdownView(
-                        markdown: document.content,
-                        theme: themeManager.currentTheme
-                    )
-                    .background(themeManager.currentTheme.editorBackground)
-                    #endif
-                }
+            Link("Click this direct SwiftUI Link", destination: URL(string: "https://apple.com")!)
+                .padding()
+                .foregroundColor(.blue)
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(8)
+                .padding(.bottom)
+            
+            Divider()
+            
+            // Our custom FormattedTextPane with links
+            FormattedTextPane(textSegments: [
+                ("This text contains a ", TextStyle.regular),
+                ("clickable link ", TextStyle.hyperlink(url: URL(string: "https://www.apple.com")!)),
+                ("to demonstrate how links work.", TextStyle.regular)
+            ])
+            .frame(height: 100)
+            .border(Color.gray)
+        }
+        .padding()
+    }
+}
+
+// Custom NSTextView wrapper to handle cursor changes for links
+struct LinkTextView: NSViewRepresentable {
+    var attributedString: AttributedString
+    
+    func makeNSView(context: Context) -> NSTextView {
+        let textView = NSTextView()
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.allowsUndo = false
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.textContainerInset = .zero
+        textView.backgroundColor = .clear
+        
+        // Setup link attributes detection
+        textView.linkTextAttributes = [
+            .foregroundColor: NSColor.linkColor,
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+            .cursor: NSCursor.pointingHand
+        ]
+        
+        return textView
+    }
+    
+    func updateNSView(_ nsView: NSTextView, context: Context) {
+        // Convert AttributedString to NSAttributedString
+        let nsAttributedString = NSAttributedString(attributedString)
+        nsView.textStorage?.setAttributedString(nsAttributedString)
+        
+        // Set cursor to pointing hand for link regions
+        let linkRanges = getLinkRanges(from: nsAttributedString)
+        for range in linkRanges {
+            nsView.textStorage?.addAttribute(.cursor, value: NSCursor.pointingHand, range: range)
+        }
+    }
+    
+    // Helper method to find ranges of links in the attributed string
+    private func getLinkRanges(from attrString: NSAttributedString) -> [NSRange] {
+        var ranges: [NSRange] = []
+        let fullRange = NSRange(location: 0, length: attrString.length)
+        
+        attrString.enumerateAttribute(.link, in: fullRange) { value, range, _ in
+            if value != nil {
+                ranges.append(range)
             }
-            .animation(.easeInOut(duration: 0.3), value: editMode)
         }
-        .onDisappear {
-            // Save document when view disappears
-            document.save()
-        }
-    }
-    
-    // Helper method to insert Markdown into the document
-    private func insertMarkdown(_ markdown: String) {
-        if editMode {
-            document.content.append("\n\(markdown)")
-            // Trigger save on insert
-            document.save()
-            // Notify document was updated
-            NotificationCenter.default.post(name: NSNotification.Name("DocumentUpdated"), object: document)
-        }
+        
+        return ranges
     }
 }
 
-public struct MarkdownView: View {
-    public let markdown: String
-    public let theme: Theme
+// A style definition for text formatting
+struct TextStyle {
+    let fontWeight: Font.Weight
+    let italic: Bool
+    let color: Color
+    let backgroundColor: Color?
+    let underlined: Bool
+    let link: URL?
     
-    public init(markdown: String, theme: Theme) {
-        self.markdown = markdown
-        self.theme = theme
-    }
+    static let regular = TextStyle(
+        fontWeight: .regular,
+        italic: false,
+        color: .primary,
+        backgroundColor: nil,
+        underlined: false,
+        link: nil
+    )
     
-    public var body: some View {
-        if #available(macOS 13.0, iOS 16.0, *) {
-            // Use the newer SwiftUI native Markdown view on newer systems
-            NativeMarkdownView(markdown: markdown, theme: theme)
-        } else {
-            // Use our custom renderer for older systems
-            MarkdownRendererView(
-                markdown: markdown,
-                specification: .commonMark,
-                theme: theme
-            )
-        }
+    static let bold = TextStyle(
+        fontWeight: .bold,
+        italic: false,
+        color: .primary,
+        backgroundColor: nil,
+        underlined: false,
+        link: nil
+    )
+    
+    static let italic = TextStyle(
+        fontWeight: .regular,
+        italic: true,
+        color: .primary,
+        backgroundColor: nil,
+        underlined: false,
+        link: nil
+    )
+    
+    static let boldItalic = TextStyle(
+        fontWeight: .bold,
+        italic: true,
+        color: .primary,
+        backgroundColor: nil,
+        underlined: false,
+        link: nil
+    )
+    
+    static func hyperlink(url: URL) -> TextStyle {
+        return TextStyle(
+            fontWeight: .regular,
+            italic: false,
+            color: .blue,
+            backgroundColor: nil,
+            underlined: true,
+            link: url
+        )
     }
 }
 
-@available(macOS 13.0, iOS 16.0, *)
-private struct NativeMarkdownView: View {
-    let markdown: String
-    let theme: Theme
+struct EditorPane: View {
+    let text: String
+    let fontWeight: Font.Weight
+    let italic: Bool
+    let color: Color
+    let backgroundColor: Color?
+    let underlined: Bool
+    
+    init(
+        text: String,
+        fontWeight: Font.Weight = .regular,
+        italic: Bool = false,
+        color: Color = .primary,
+        backgroundColor: Color? = nil,
+        underlined: Bool = false
+    ) {
+        self.text = text
+        self.fontWeight = fontWeight
+        self.italic = italic
+        self.color = color
+        self.backgroundColor = backgroundColor
+        self.underlined = underlined
+    }
     
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                let markdownString = try? AttributedString(markdown: markdown)
-                
-                if let markdownString = markdownString {
-                    Text(markdownString)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    // Fallback if parsing fails
-                    Text(markdown)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            .padding()
+            Text(text)
+                .font(italic ? .body.italic().weight(fontWeight) : .body.weight(fontWeight))
+                .foregroundColor(color)
+                .padding(8)
+                .background(backgroundColor)
+                .underline(underlined)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(8)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .background(theme.editorBackground)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(4)
     }
 }
+
+// A component to display multiple styled text segments
+// A component to display multiple styled text segments
+struct FormattedTextPane: View {
+    let textSegments: [(String, TextStyle)]
+    
+    private var attributedString: AttributedString {
+        var result = AttributedString("")
+        
+        for (text, style) in textSegments {
+            var segment = AttributedString(text)
+            segment.font = style.italic ? .body.italic().weight(style.fontWeight) : .body.weight(style.fontWeight)
+            segment.foregroundColor = style.color
+            
+            if let bgColor = style.backgroundColor {
+                segment.backgroundColor = bgColor
+            }
+            
+            if style.underlined {
+                segment.underlineStyle = Text.LineStyle.single
+            }
+            
+            if let url = style.link {
+                segment.link = url
+            }
+            
+            result.append(segment)
+        }
+        
+        return result
+    }
+    
+    var body: some View {
+        ScrollView {
+            LinkTextView(attributedString: attributedString)
+                .padding(8)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.gray.opacity(0.1))
+        .cornerRadius(4)
+    }
+}
+
+
+// Example usage - renamed to avoid conflicts with existing ContentView
+struct EditorPaneExampleView: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Simple Editor Pane")
+                .font(.headline)
+                .padding()
+            
+            EditorPane(
+                text: "This is a simple editor pane with basic formatting.",
+                fontWeight: .semibold,
+                color: .blue
+            )
+            .frame(height: 100)
+            .border(Color.gray)
+            .padding(.horizontal)
+            
+            Text("Formatted Text Pane")
+                .font(.headline)
+            
+            FormattedTextPane(textSegments: [
+                ("This is bold text. ", TextStyle.bold),
+                ("This is italic text. ", TextStyle.italic),
+                ("This is both bold AND italic. ", TextStyle.boldItalic),
+                ("This is colored text. ", TextStyle(fontWeight: .regular, italic: false, color: .blue, backgroundColor: nil, underlined: false, link: nil)),
+                ("This has a background. ", TextStyle(fontWeight: .regular, italic: false, color: .primary, backgroundColor: Color.yellow, underlined: false, link: nil)),
+                ("This is underlined.", TextStyle(fontWeight: .regular, italic: false, color: .primary, backgroundColor: nil, underlined: true, link: nil)),
+                ("\nThis is a link to Apple's website. ", TextStyle.hyperlink(url: URL(string: "https://www.apple.com")!))
+            ])
+            .frame(height: 150)
+            .border(Color.gray)
+            .padding(.horizontal)
+            
+            Divider()
+            
+            // Add the link demo
+            LinkDemoView()
+        }
+        .padding()
+    }
+}
+
+// Preview for the example view
+struct EditorPaneExampleView_Previews: PreviewProvider {
+    static var previews: some View {
+        EditorPaneExampleView()
+    }
+}
+
+

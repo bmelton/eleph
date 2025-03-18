@@ -26,7 +26,8 @@ public struct MainView: View {
             .frame(minWidth: 250)
         } detail: {
             if let document = selectedDocument {
-                EditorPane(document: document)
+                // EditorPane(document: document)
+                EditorPaneExampleView()
             } else {
                 EmptyView()
             }
@@ -46,10 +47,10 @@ public struct MainView: View {
     }
     
     private func saveCurrentDocument() {
-        guard let document = selectedDocument else { return }
+        // guard let document = selectedDocument else { return }
         
         // Just call the direct save method
-        document.save()
+        // document.save()
     }
 }
 
