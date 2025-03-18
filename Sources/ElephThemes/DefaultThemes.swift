@@ -10,6 +10,7 @@ public struct ClassicTheme: Theme {
     public let primaryText: Color
     public let secondaryText: Color
     public let tertiaryText: Color
+    public let editorTextColor: Color
     public let navigationBackground: Color
     public let previewBackground: Color
     public let editorBackground: Color
@@ -31,6 +32,7 @@ public struct ClassicTheme: Theme {
         primaryText: Color(white: 0.1),
         secondaryText: Color(white: 0.3),
         tertiaryText: Color(white: 0.5),
+        editorTextColor: Color(white: 0.1),
         navigationBackground: Color(white: 0.95),
         previewBackground: Color(white: 1.0),
         editorBackground: Color(white: 1.0),
@@ -53,6 +55,7 @@ public struct ClassicTheme: Theme {
         primaryText: Color(white: 0.9),
         secondaryText: Color(white: 0.7),
         tertiaryText: Color(white: 0.5),
+        editorTextColor: Color(white: 0.5),
         navigationBackground: Color(white: 0.15),
         previewBackground: Color(white: 0.1),
         editorBackground: Color(white: 0.1),
@@ -85,6 +88,7 @@ public struct MinimalTheme: Theme {
     public let primaryText: Color
     public let secondaryText: Color
     public let tertiaryText: Color
+    public let editorTextColor: Color
     public let navigationBackground: Color
     public let previewBackground: Color
     public let editorBackground: Color
@@ -106,6 +110,7 @@ public struct MinimalTheme: Theme {
         primaryText: Color.black,
         secondaryText: Color.gray,
         tertiaryText: Color.gray.opacity(0.7),
+        editorTextColor: Color.black,
         navigationBackground: Color.white,
         previewBackground: Color.white,
         editorBackground: Color.white,
@@ -128,6 +133,7 @@ public struct MinimalTheme: Theme {
         primaryText: Color.white,
         secondaryText: Color.gray,
         tertiaryText: Color.gray.opacity(0.7),
+        editorTextColor: Color.white,
         navigationBackground: Color.black,
         previewBackground: Color.black,
         editorBackground: Color.black,

@@ -143,93 +143,6 @@ public struct EditorPane: View {
     }
 }
 
-/*
-public struct EditorPane: View {
-    @ObservedObject public var document: Document
-
-    public init(document: Document) {
-        self.document = document
-    }
-    @State private var editMode = true
-    @EnvironmentObject private var themeManager: ThemeManager
-
-    public var body: some View {
-        VStack(spacing: 0) {
-            // Toolbar
-            HStack {
-                Button(action: { editMode.toggle() }) {
-                    Label(editMode ? "Preview" : "Edit", systemImage: editMode ? "eye" : "pencil")
-                }
-
-                Spacer()
-
-                // Add some additional tools
-                HStack(spacing: 12) {
-                    // Heading button
-                    Button(action: { insertMarkdown("# ") }) {
-                        Image(systemName: "textformat.size")
-                    }
-                    .help("Insert Heading")
-
-                    // Bold button
-                    Button(action: { insertMarkdown("**bold text**") }) {
-                        Image(systemName: "bold")
-                    }
-                    .help("Bold")
-
-                    // Italic button
-                    Button(action: { insertMarkdown("*italic text*") }) {
-                        Image(systemName: "italic")
-                    }
-                    .help("Italic")
-
-                    // List button
-                    Button(action: { insertMarkdown("- ") }) {
-                        Image(systemName: "list.bullet")
-                    }
-                    .help("Bullet List")
-
-                    // Share button
-                    Button(action: {}) {
-                        Label("Share", systemImage: "square.and.arrow.up")
-                    }
-                    .help("Share")
-                }
-            }
-            .padding()
-            .background(themeManager.currentTheme.toolbarBackground)
-
-            // Editor/Preview content
-            ZStack {
-                // Editor
-                if editMode {
-                    RichTextEditor(text: $document.content, theme: themeManager.currentTheme)
-                        .padding()
-                        .background(themeManager.currentTheme.editorBackground)
-                        .frame(minWidth: 400, maxWidth: .infinity, minHeight: 600, maxHeight: .infinity)
-                } else {
-                    // Preview
-                    MarkdownView(
-                        markdown: document.content,
-                        theme: themeManager.currentTheme
-                    )
-                    .frame(minWidth: 400, maxWidth: .infinity, minHeight: 600, maxHeight: .infinity)
-                    .background(themeManager.currentTheme.editorBackground)
-                }
-            }
-            .animation(.easeInOut(duration: 0.3), value: editMode)
-        }
-    }
-
-    // Helper method to insert Markdown into the document
-    private func insertMarkdown(_ markdown: String) {
-        if editMode {
-            document.content.append("\n\(markdown)")
-        }
-    }
-}
-*/
-
 struct RichTextEditor: NSViewRepresentable {
     @Binding var text: String
     let theme: Theme
@@ -244,12 +157,16 @@ struct RichTextEditor: NSViewRepresentable {
         textView.font = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
         textView.allowsUndo = true
 
+        // Set the text color from the theme
+        textView.textColor = NSColor(theme.editorTextColor) // Add this line
+
         return textView
     }
 
     func updateNSView(_ nsView: NSTextView, context: Context) {
         let attributedString = parseMarkdown(text, theme: theme)
         nsView.textStorage?.setAttributedString(attributedString)
+        nsView.textColor = NSColor(theme.editorTextColor) //add this line.
     }
 
     func makeCoordinator() -> Coordinator {
@@ -291,7 +208,6 @@ struct RichTextEditor: NSViewRepresentable {
             }
         }
 
-        // Italic
         // Italic
         regexItalic?.enumerateMatches(in: markdown, options: [], range: NSRange(location: 0, length: markdown.utf16.count)) { match, _, _ in
             if let match = match, let range = Range(match.range(at: 1), in: markdown) {

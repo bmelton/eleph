@@ -13,7 +13,8 @@ public protocol Theme {
     var primaryText: Color { get }
     var secondaryText: Color { get }
     var tertiaryText: Color { get }
-    
+    var editorTextColor: Color { get } // Add this line
+
     // UI element colors
     var navigationBackground: Color { get }
     var previewBackground: Color { get }
