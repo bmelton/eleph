@@ -2,6 +2,7 @@ import SwiftUI
 import ElephCore
 import ElephThemes
 
+
 // We are exporting this view so it canbe used by the macOS and iOS app targets
 public struct MainView: View {
     @EnvironmentObject private var themeManager: ThemeManager
@@ -26,8 +27,6 @@ public struct MainView: View {
         } detail: {
             if let document = selectedDocument {
                 EditorPane(document: document)
-            } else {
-                // ...
             }
         }
         .navigationSplitViewStyle(.balanced)
