@@ -10,7 +10,8 @@ let package = Package(
     products: [
         .library(name: "ElephApp", targets: ["ElephApp"]),
         .library(name: "ElephCore", targets: ["ElephCore"]),
-        .library(name: "ElephMarkdown", targets: ["ElephMarkdown"]),
+        .library(
+            name: "ElephMarkdown", targets: ["ElephMarkdown"]),
         .library(name: "ElephThemes", targets: ["ElephThemes"]),
         .executable(name: "ElephIOS", targets: ["ElephIOS"]),
         .executable(name: "ElephMacOS", targets: ["ElephMacOS"])

@@ -1,12 +1,15 @@
 import SwiftUI
+import WebKit
 import Markdown
 import ElephThemes
+import Foundation
 
 // Using qualified names to avoid ambiguity
 typealias MarkdownLink = Markdown.Link
 typealias MarkdownBlockquote = Markdown.BlockQuote
 
 // A custom markdown renderer to handle different elements
+/*
 public class MarkdownRenderer {
     private let theme: Theme?
     
@@ -16,6 +19,127 @@ public class MarkdownRenderer {
     
     // In a real implementation, this would traverse all elements
     // and apply styling based on the theme
+}
+*/
+public class MarkdownRenderer {
+    private let theme: Theme?
+
+    public init(theme: Theme? = nil) {
+        self.theme = theme
+    }
+
+    public func render(document: Document) -> AttributedString {
+        return renderBlockChildren(Array(document.blockChildren))
+    }
+
+    private func renderBlockChildren(_ blocks: [BlockMarkup]) -> AttributedString {
+        var result = AttributedString()
+        for block in blocks {
+            result += renderBlock(block)
+        }
+        return result
+    }
+
+    private func renderBlock(_ block: BlockMarkup) -> AttributedString {
+        switch block {
+        case let heading as Heading:
+            return renderHeading(heading)
+        case let paragraph as Paragraph:
+            return renderParagraph(paragraph)
+        case let blockquote as BlockQuote:
+            return renderBlockquote(blockquote)
+        // Add more cases for other block types
+        default:
+            return AttributedString(block.debugDescription())
+        }
+    }
+
+    private func renderHeading(_ heading: Heading) -> AttributedString {
+        var container = AttributeContainer()
+        //Apply styling from theme.
+        if let theme = theme {
+            container.foregroundColor = theme.headingColor
+        }
+        switch heading.level {
+        case 1:
+            container.font = .system(size: 28, weight: .bold)
+        case 2:
+            container.font = .system(size: 24, weight: .bold)
+        //Add the rest of the cases.
+        default:
+            container.font = .system(size: 16, weight: .bold)
+        }
+        var result = renderInlineChildren(Array(heading.inlineChildren)) // Changed to var
+        result.mergeAttributes(container, mergePolicy: .keepNew)
+        return result
+    }
+    
+    private func renderParagraph(_ paragraph: Paragraph) -> AttributedString {
+        let result = renderInlineChildren(Array(paragraph.inlineChildren))
+        return result + AttributedString("\n")
+    }
+
+    private func renderInlineChildren(_ inlines: [InlineMarkup]) -> AttributedString {
+        var result = AttributedString()
+        for inline in inlines {
+            result += renderInline(inline)
+        }
+        return result
+    }
+
+    private func renderInline(_ inline: InlineMarkup) -> AttributedString {
+        switch inline {
+        case let text as Markdown.Text: // Explicitly use Markdown.Text
+            return AttributedString(text.string)
+        case let link as Markdown.Link: // Explicitly use Markdown.Link
+            return renderLink(link)
+        case let code as InlineCode:
+            return renderCode(code)
+        // Add more cases for other inline types
+        default:
+            return AttributedString(inline.debugDescription()) // Fallback
+        }
+    }
+
+    private func renderLink(_ link: Markdown.Link) -> AttributedString {
+        var container = AttributeContainer()
+        if let theme = theme {
+            container.foregroundColor = theme.linkColor
+        }
+        if let url = URL(string: link.destination ?? "") {
+            container.link = url
+        }
+        var result = renderInlineChildren(Array(link.inlineChildren))
+        result.mergeAttributes(container, mergePolicy: .keepNew)
+        return result
+    }
+    
+    private func renderCode(_ code: InlineCode) -> AttributedString {
+        var container = AttributeContainer()
+        container.font = .system(.body, design: .monospaced)
+        if let theme = theme {
+            container.backgroundColor = theme.codeBackground
+            container.foregroundColor = theme.codeText
+        } else {
+            container.backgroundColor = Color(white: 0.95)
+        }
+        var result = AttributedString(code.code)
+        result.mergeAttributes(container, mergePolicy: .keepNew)
+        return result
+    }
+
+    private func renderBlockquote(_ blockquote: BlockQuote) -> AttributedString {
+        var container = AttributeContainer()
+        if let theme = theme {
+            container.backgroundColor = theme.blockquoteBackground
+            container.foregroundColor = theme.blockquoteText
+        } else {
+            container.backgroundColor = Color(white: 0.95)
+        }
+        var result = renderBlockChildren(Array(blockquote.blockChildren))
+        result.mergeAttributes(container, mergePolicy: .keepNew)
+        return result;
+    }
 }
 
 // This extension provides helper methods to style the markdown elements
@@ -96,13 +220,14 @@ extension MarkdownRenderer {
     }
 }
 
+import SwiftUI
+import WebKit
+
 public struct MarkdownRendererView: View {
     private let markdown: String
     private let theme: Theme?
     private let parser: MarkdownParser
-    
-    @State private var attributedText: AttributedString?
-    
+
     public init(
         markdown: String,
         specification: MarkdownSpecification = .commonMark,
@@ -112,128 +237,44 @@ public struct MarkdownRendererView: View {
         self.theme = theme
         self.parser = MarkdownParser(specification: specification)
     }
-    
+
     public var body: some View {
         ScrollView {
             if #available(macOS 12.0, iOS 15.0, *) {
-                // Use the native AttributedString-based Markdown rendering
-                Text(LocalizedStringKey(markdown))
-                    .textSelection(.enabled)
-                    .padding()
+                let htmlString = parser.toHTML(markdown: markdown)
+                WebView(htmlString: htmlString)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding() // Apply padding to the WebView's container, not WebView itself.
             } else {
-                // Fallback for older systems
-                markdownText
-                    .textSelection(.enabled)
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("Markdown rendering not supported on this OS version.")
             }
-        }
-    }
-    
-    @ViewBuilder
-    private var markdownText: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            let lines = markdown.components(separatedBy: "\n")
-            
-            ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
-                if line.starts(with: "#") {
-                    headingView(for: line)
-                } else if line.starts(with: "-") || line.starts(with: "*") {
-                    bulletView(for: line)
-                } else if line.starts(with: ">") {
-                    quoteView(for: line)
-                } else if line.contains("**") || line.contains("__") {
-                    boldView(for: line)
-                } else if line.contains("*") || line.contains("_") {
-                    italicView(for: line)
-                } else if !line.isEmpty {
-                    Text(line)
-                        .font(.body)
-                } else {
-                    Spacer()
-                        .frame(height: 8)
-                }
-            }
-        }
-    }
-    
-    private func headingView(for line: String) -> some View {
-        let level = line.prefix(while: { $0 == "#" }).count
-        let text = line.dropFirst(level + 1)
-        
-        let font: Font = {
-            switch level {
-            case 1: return .system(size: 28, weight: .bold)
-            case 2: return .system(size: 24, weight: .bold)
-            case 3: return .system(size: 20, weight: .bold)
-            case 4: return .system(size: 18, weight: .semibold)
-            case 5: return .system(size: 16, weight: .semibold)
-            default: return .system(size: 14, weight: .semibold)
-            }
-        }()
-        
-        return Text(String(text))
-            .font(font)
-            .foregroundColor(theme?.headingColor ?? .primary)
-            .padding(.vertical, 4)
-    }
-    
-    private func bulletView(for line: String) -> some View {
-        let text = line.dropFirst(2)
-        return HStack(alignment: .top, spacing: 8) {
-            Text("•")
-                .font(.body)
-            Text(String(text))
-                .font(.body)
-        }
-    }
-    
-    private func quoteView(for line: String) -> some View {
-        let text = line.dropFirst(2)
-        return HStack {
-            Rectangle()
-                .fill(theme?.blockquoteBackground ?? Color.gray.opacity(0.3))
-                .frame(width: 4)
-            Text(String(text))
-                .font(.body)
-                .italic()
-                .foregroundColor(theme?.blockquoteText ?? .secondary)
-        }
-        .padding(.leading, 8)
-    }
-    
-    private func boldView(for line: String) -> some View {
-        // This is a simplified approach, a real implementation would 
-        // properly handle mixed formatting within a line
-        if line.contains("**") {
-            let parts = line.components(separatedBy: "**")
-            return Text(parts.joined(separator: ""))
-                .font(.body.bold())
-        } else if line.contains("__") {
-            let parts = line.components(separatedBy: "__")
-            return Text(parts.joined(separator: ""))
-                .font(.body.bold())
-        } else {
-            return Text(line)
-                .font(.body)
-        }
-    }
-    
-    private func italicView(for line: String) -> some View {
-        // This is a simplified approach, a real implementation would 
-        // properly handle mixed formatting within a line
-        if line.contains("*") && !line.contains("**") {
-            let parts = line.components(separatedBy: "*")
-            return Text(parts.joined(separator: ""))
-                .font(.body.italic())
-        } else if line.contains("_") && !line.contains("__") {
-            let parts = line.components(separatedBy: "_")
-            return Text(parts.joined(separator: ""))
-                .font(.body.italic())
-        } else {
-            return Text(line)
-                .font(.body)
         }
     }
 }
+
+// Create separate WebView implementations for iOS and macOS
+#if os(iOS)
+struct WebView: UIViewRepresentable {
+    let htmlString: String
+
+    func makeUIView(context: Context) -> WKWebView {
+        return WKWebView()
+    }
+
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        uiView.loadHTMLString(htmlString, baseURL: nil)
+    }
+}
+#elseif os(macOS)
+struct WebView: NSViewRepresentable {
+    let htmlString: String
+
+    func makeNSView(context: Context) -> WKWebView {
+        return WKWebView()
+    }
+
+    func updateNSView(_ nsView: WKWebView, context: Context) {
+        nsView.loadHTMLString(htmlString, baseURL: nil)
+    }
+}
+#endif

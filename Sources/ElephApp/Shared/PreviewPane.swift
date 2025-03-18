@@ -41,6 +41,7 @@ public struct PreviewPane: View {
             .padding(.top, 8)
             
             List(filteredDocuments) { document in
+                
                 DocumentPreviewRow(document: document)
                     .onTapGesture {
                         selectedDocument = document
@@ -101,7 +102,6 @@ public struct DocumentPreviewRow: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(document.extractedTitle)
                 .font(.headline)
-            
             Text(document.previewText)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
